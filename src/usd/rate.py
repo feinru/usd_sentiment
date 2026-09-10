@@ -4,10 +4,13 @@ from playwright.sync_api import sync_playwright
 
 def download_and_convert_jisdor():
     url = "https://www.bi.go.id/id/statistik/informasi-kurs/jisdor/default.aspx"
-    raw_dir = "data/raw"
+    # Get the project root directory (two levels up from src/usd/rate.py)
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    
+    raw_dir = os.path.join(project_root, "data", "raw")
     os.makedirs(raw_dir, exist_ok=True)
     
-    processed_dir = "data/processed"
+    processed_dir = os.path.join(project_root, "data", "processed")
     os.makedirs(processed_dir, exist_ok=True)
     
     with sync_playwright() as p:
