@@ -11,7 +11,7 @@ def adjust_dates(root_dir):
     print(f"Loading data from {processed_dir}...")
     
     # Memuat data rate (kurs) untuk mendapatkan hari-hari pasar (valid market days)
-    # Ini akan secara otomatis mengecualikan weekend dan hari libur nasional
+    # Secara otomatis mengecualikan weekend dan hari libur nasional
     rate_file = os.path.join(processed_dir, 'rate.csv')
     rate_df = pd.read_csv(rate_file)
     rate_df['tanggal'] = pd.to_datetime(rate_df['tanggal']).dt.date
@@ -38,16 +38,17 @@ def adjust_dates(root_dir):
     # Aturan Logis 2:
     # Jika berita diterbitkan pada hari libur atau weekend, geser ke hari kerja pasar terdekat.
     # Kita menggunakan data tanggal pada rate.csv sebagai acuan "hari kerja pasar".
+    import bisect
     def get_next_valid_date(d):
-        for vd in valid_dates:
-            if vd >= d:
-                return vd
+        idx = bisect.bisect_left(valid_dates, d)
+        if idx < len(valid_dates):
+            return valid_dates[idx]
         # Jika tanggal melebihi data rate yang tersedia, geser ke hari kerja biasa (Senin-Jumat)
         while d.weekday() >= 5: # 5=Sabtu, 6=Minggu
             d += pd.Timedelta(days=1)
         return d
     
-    news_df['date'] = news_df['adj_date'].apply(get_next_valid_date)
+    news_df['adjusted_date'] = news_df['adj_date'].apply(get_next_valid_date)
     
     # Hapus kolom sementara agar dataframe tetap rapi
     news_df = news_df.drop(columns=['datetime', 'datetime_jkt', 'adj_date'])
@@ -62,17 +63,15 @@ def adjust_dates(root_dir):
     rate_df.to_csv(output_rate_file, index=False)
     print(f"Saved rate data to {output_rate_file}")
     
-    print("Selesai menyesuaikan tanggal!")
+    print("Penyelarasan data temporal selesai")
 
 if __name__ == "__main__":
-    # Output data setelah tanggal disesuaikan
+    # Output setelah data temporal diselaraskan
     # Struktur: root/src/news/adjustdate.py 
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    root_directory = os.path.abspath(os.path.join(current_dir, '..', '..', '..'))
+    root_directory = os.path.abspath(os.path.join(current_dir, '..', '..'))
     
-    # Directory yang dituju
-    expected_root = r"d:\CS24\NLP\usd_sentiment"
     if not os.path.exists(os.path.join(root_directory, 'data')):
-        root_directory = expected_root
+        print("Warning: Direktori 'data' tidak ditemukan di root:", root_directory)
         
     adjust_dates(root_directory)
