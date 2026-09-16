@@ -1,8 +1,3 @@
-"""
-Pipeline filtering noise untuk dataset berita geopolitik hasil scraping.
-Disesuaikan dengan karakteristik cnbc.csv (single-source, 11714 baris).
-"""
-
 import pandas as pd
 import re
 
@@ -26,13 +21,13 @@ df["full_text"] = df["full_text"].apply(
 )
 
 # 4. Drop artikel yang terlalu pendek untuk analisis konten (< 30 kata)
-#    Threshold dipilih dari distribusi kata di dataset ini (median ~566, hampir semua > 100)
+#    Threshold dipilih dari distribusi kata di dataset ini
 word_count = df["full_text"].str.split().str.len()
 df = df[word_count >= 30]
 report["setelah_drop_terlalu_pendek"] = len(df)
 
 # 5. (Opsional, tidak dijalankan default) Near-duplicate detection via TF-IDF cosine similarity
-#    Berguna kalau nanti kamu gabungkan sumber lain yang bisa republish artikel yang sama.
+#    Berguna kalau nanti ingin menggabungkan sumber lain yang bisa republish artikel yang sama.
 RUN_NEAR_DUP_CHECK = False
 if RUN_NEAR_DUP_CHECK:
     from sklearn.feature_extraction.text import TfidfVectorizer
