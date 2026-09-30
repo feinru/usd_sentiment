@@ -1,1 +1,5 @@
 .venv
+# Artefak besar hasil training (model .joblib) — metrik JSON/CSV tetap di-commit
+outputs/models/
+__pycache__/
+.ipynb_checkpoints/

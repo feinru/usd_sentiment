@@ -1,0 +1,21 @@
+{
+  "n_total": 1181,
+  "n_train": 826,
+  "n_val": 177,
+  "n_test": 178,
+  "train_ratio": 0.7,
+  "val_ratio": 0.15,
+  "test_ratio": 0.15,
+  "train_start": "2021-09-29 00:00:00",
+  "train_end": "2025-02-25 00:00:00",
+  "val_start": "2025-02-26 00:00:00",
+  "val_end": "2025-11-25 00:00:00",
+  "test_start": "2025-11-26 00:00:00",
+  "test_end": "2026-08-31 00:00:00",
+  "n_news_total": 8507,
+  "n_news_train_fit": 1810,
+  "target": "direction = 1 bila kurs_next > kurs (NAIK), else 0 (TURUN)",
+  "target_pos_rate_train": 0.5581113801452785,
+  "target_pos_rate_val": 0.519774011299435,
+  "target_pos_rate_test": 0.5786516853932584
+}
