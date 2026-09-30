@@ -80,7 +80,7 @@ def evaluate_test():
     preds_arimax = []
     
     for t in range(len(y_test)):
-        model = ARIMA(endog=history_y, exog=history_X, order=(0, 0, 1))
+        model = ARIMA(endog=history_y, exog=history_X, order=(1, 0, 1))
         fitted = model.fit()
         yhat = fitted.forecast(steps=1, exog=X_test_arimax_scaled[t:t+1])[0]
         preds_arimax.append(yhat)
@@ -105,7 +105,7 @@ def evaluate_test():
     model_xgb = xgb.XGBRegressor(
         learning_rate=0.01,
         max_depth=3,
-        n_estimators=200,
+        n_estimators=100,
         random_state=42,
         objective='reg:squarederror'
     )
