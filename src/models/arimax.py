@@ -2,7 +2,6 @@ import os
 import pandas as pd
 import numpy as np
 from statsmodels.tsa.arima.model import ARIMA
-from sklearn.linear_model import Ridge
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 import itertools
 import warnings
@@ -23,14 +22,23 @@ def run_arimax():
     rate_df['tanggal'] = pd.to_datetime(rate_df['tanggal'])
     
     data = pd.merge(rate_df, features_df, on='tanggal', how='inner')
-    
     data = data.sort_values('tanggal').reset_index(drop=True)
     
-    data = data.ffill().fillna(0)
+    # --- METHODOLOGICAL FIXES ---
+    print("\nApplying Methodological Fixes (Shifting & Differencing)...")
     
-    output_data_path = "data/features/data.csv"
-    data.to_csv(output_data_path, index=False)
-    print(f"\nMerged dataset saved to {output_data_path} with shape {data.shape}")
+    # 1. Target is the difference (change in exchange rate)
+    data['kurs_diff'] = data['kurs'].diff()
+    
+    # 2. Add autoregressive lag (yesterday's diff)
+    data['kurs_diff_lag1'] = data['kurs_diff'].shift(1)
+    
+    # 3. Shift ALL sentiment features by 1 to prevent lookahead bias (nowcasting -> forecasting)
+    sentiment_cols = [c for c in data.columns if c not in ['tanggal', 'kurs', 'kurs_diff', 'kurs_diff_lag1']]
+    data[sentiment_cols] = data[sentiment_cols].shift(1)
+    
+    # Drop rows with NaNs introduced by shifting and diffing
+    data = data.dropna().reset_index(drop=True)
     
     n = len(data)
     train_end = int(n * 0.7)
@@ -50,33 +58,30 @@ def run_arimax():
     print(f"  Val:   {val_df.shape[0]} rows")
     print(f"  Test:  {test_df.shape[0]} rows")
     
-    y_train = train_df['kurs']
-    y_val = val_df['kurs']
+    # --- ARIMAX MODELING ---
+    # Target is now kurs_diff!
+    y_train = train_df['kurs_diff']
+    y_val = val_df['kurs_diff']
     
-    exog_cols = [c for c in data.columns if c not in ['tanggal', 'kurs']]
-    X_train = train_df[exog_cols].copy()
-    X_val = val_df[exog_cols].copy()
+    # For ARIMAX we must severely limit features to prevent singular matrix errors (crashes).
+    # Let's use just two main sentiment aggregations.
+    selected_exog = ['title_vader_compound_mean', 'title_lm_polarity_mean']
     
-    svd_cols = [c for c in exog_cols if 'svd' in c]
-    print(f"\nTraining Ridge Regression on {len(svd_cols)} TF-IDF SVD features to create a meta-feature...")
+    # Ensure they exist (fallback if missing)
+    selected_exog = [c for c in selected_exog if c in train_df.columns]
     
-    ridge = Ridge(alpha=1.0)
-    ridge.fit(X_train[svd_cols], y_train)
+    X_train = train_df[selected_exog].copy()
+    X_val = val_df[selected_exog].copy()
     
-    X_train['tfidf_meta_pred'] = ridge.predict(X_train[svd_cols])
-    X_val['tfidf_meta_pred'] = ridge.predict(X_val[svd_cols])
-    
-    selected_exog = [c for c in exog_cols if 'lm' in c or 'vader' in c] + ['tfidf_meta_pred']
-    
-    print(f"\nTraining ARIMAX on {len(selected_exog)} exogenous variables: {selected_exog}")
-    print("Searching for best ARIMAX (p,d,q) parameters...")
+    print(f"\nTraining ARIMAX on {len(selected_exog)} exogenous variables (predicting kurs_diff)...")
     
     warnings.simplefilter('ignore', ConvergenceWarning)
     warnings.filterwarnings("ignore")
     
-    p_values = [0, 1, 2]
-    d_values = [0, 1]
-    q_values = [0, 1, 2]
+    # Since target is already differenced, d=0 (ARMA model on diffs)
+    p_values = [0, 1] 
+    d_values = [0] 
+    q_values = [0, 1]
     
     best_rmse = float('inf')
     best_order = None
@@ -84,9 +89,9 @@ def run_arimax():
     
     for p, d, q in itertools.product(p_values, d_values, q_values):
         try:
-            model = ARIMA(endog=y_train, exog=X_train[selected_exog], order=(p, d, q))
+            model = ARIMA(endog=y_train, exog=X_train, order=(p, d, q))
             fitted = model.fit()
-            preds = fitted.forecast(steps=len(y_val), exog=X_val[selected_exog])
+            preds = fitted.forecast(steps=len(y_val), exog=X_val)
             rmse = np.sqrt(mean_squared_error(y_val, preds))
             
             if rmse < best_rmse:
@@ -98,17 +103,25 @@ def run_arimax():
             
     print(f"\nBest ARIMA Order Found: {best_order}")
     
+    if fitted_model is None:
+        print("\nERROR: All ARIMA models failed to converge even with reduced features.")
+        return
+        
     print("\nModel Summary (abbreviated):")
     print(fitted_model.summary().tables[0])
     
-    predictions = fitted_model.forecast(steps=len(y_val), exog=X_val[selected_exog])
+    # 4. Naive Baseline (predict 0 change)
+    naive_preds = np.zeros(len(y_val))
+    naive_rmse = np.sqrt(mean_squared_error(y_val, naive_preds))
+    naive_mae = mean_absolute_error(y_val, naive_preds)
     
+    predictions = fitted_model.forecast(steps=len(y_val), exog=X_val)
     rmse = np.sqrt(mean_squared_error(y_val, predictions))
     mae = mean_absolute_error(y_val, predictions)
     
-    print(f"\nValidation Performance:")
-    print(f"  RMSE: {rmse:.2f}")
-    print(f"  MAE:  {mae:.2f}")
+    print(f"\n--- VALIDATION PERFORMANCE ---")
+    print(f"Naive Baseline (Zero Diff): RMSE {naive_rmse:.2f} | MAE {naive_mae:.2f}")
+    print(f"ARIMAX Model:               RMSE {rmse:.2f} | MAE {mae:.2f}")
 
 if __name__ == "__main__":
     run_arimax()
