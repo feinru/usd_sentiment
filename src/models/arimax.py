@@ -9,7 +9,6 @@ import warnings
 from statsmodels.tools.sm_exceptions import ConvergenceWarning
 
 def run_arimax():
-    # 1. Load Data
     features_path = "data/features/data.csv"
     rate_path = "data/dateadjusted/rate.csv"
     
@@ -41,7 +40,6 @@ def run_arimax():
     val_df = data.iloc[train_end:val_end]
     test_df = data.iloc[val_end:]
     
-    # Save the splits
     os.makedirs("data/splits", exist_ok=True)
     train_df.to_csv("data/splits/train.csv", index=False)
     val_df.to_csv("data/splits/val.csv", index=False)
@@ -73,7 +71,6 @@ def run_arimax():
     print(f"\nTraining ARIMAX on {len(selected_exog)} exogenous variables: {selected_exog}")
     print("Searching for best ARIMAX (p,d,q) parameters...")
     
-    # Suppress convergence warnings during grid search to keep terminal clean
     warnings.simplefilter('ignore', ConvergenceWarning)
     warnings.filterwarnings("ignore")
     
@@ -88,7 +85,6 @@ def run_arimax():
     for p, d, q in itertools.product(p_values, d_values, q_values):
         try:
             model = ARIMA(endog=y_train, exog=X_train[selected_exog], order=(p, d, q))
-            # Fit with a timeout or limited iterations if desired, but default is usually fine
             fitted = model.fit()
             preds = fitted.forecast(steps=len(y_val), exog=X_val[selected_exog])
             rmse = np.sqrt(mean_squared_error(y_val, preds))
@@ -98,7 +94,6 @@ def run_arimax():
                 best_order = (p, d, q)
                 fitted_model = fitted
         except Exception:
-            # Skip invalid combinations or singular matrices
             continue
             
     print(f"\nBest ARIMA Order Found: {best_order}")

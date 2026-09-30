@@ -20,7 +20,7 @@ def run_xgboost():
     y_train = train_df['kurs']
     y_val = val_df['kurs']
     
-    exog_cols = [c for c in train_df.columns if c not in ['tanggal', 'kurs']]
+    exog_cols = [c for c in train_df.columns if 'kurs' not in c and c != 'tanggal']
     X_train = train_df[exog_cols]
     X_val = val_df[exog_cols]
     
