@@ -21,7 +21,7 @@ def run_arimax():
     rate_df = pd.read_csv(rate_path)
     rate_df['tanggal'] = pd.to_datetime(rate_df['tanggal'])
     
-    data = pd.merge(rate_df, features_df, on='tanggal', how='inner')
+    data = pd.merge(rate_df, features_df, on='tanggal', how='left')
     data = data.sort_values('tanggal').reset_index(drop=True)
     
     # --- METHODOLOGICAL FIXES ---
@@ -37,8 +37,11 @@ def run_arimax():
     sentiment_cols = [c for c in data.columns if c not in ['tanggal', 'kurs', 'kurs_diff', 'kurs_diff_lag1']]
     data[sentiment_cols] = data[sentiment_cols].shift(1)
     
-    # Drop rows with NaNs introduced by shifting and diffing
-    data = data.dropna().reset_index(drop=True)
+    # 4. Fill days without news with 0.0 (neutral sentiment)
+    data[sentiment_cols] = data[sentiment_cols].fillna(0.0)
+    
+    # Drop rows with NaNs introduced by shifting and diffing (only checking target lags)
+    data = data.dropna(subset=['kurs_diff', 'kurs_diff_lag1']).reset_index(drop=True)
     
     n = len(data)
     train_end = int(n * 0.7)

@@ -25,8 +25,7 @@ def run_xgboost():
     y_train = train_df['kurs_diff']
     y_val = val_df['kurs_diff']
     
-    # Include all features (sentiment + kurs_diff_lag1), exclude raw kurs and target
-    exog_cols = [c for c in train_df.columns if c not in ['tanggal', 'kurs', 'kurs_diff']]
+    exog_cols = [c for c in train_df.columns if c not in ['tanggal', 'kurs', 'kurs_diff', 'news_count']]
     X_train = train_df[exog_cols]
     X_val = val_df[exog_cols]
     
